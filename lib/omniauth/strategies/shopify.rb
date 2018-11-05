@@ -54,11 +54,10 @@ module OmniAuth
 
         return false unless timestamp.to_i > Time.now.to_i - CODE_EXPIRES_AFTER
 
-        new_signature = self.class.hmac_sign(self.class.encoded_params_for_signature(params), options.client_secret)
-        old_signature = self.class.hmac_sign(self.class.encoded_params_for_signature(params), options.old_client_secret)
+        new_secret = options.client_secret
+        old_secret = options.old_client_secret
 
-        Rack::Utils.secure_compare(calculated_signature, new_signature) ||
-          Rack::Utils.secure_compare(calculated_signature, old_signature)
+        validate_signature(new_secret) || (old_secret && validate_signature(old_secret))
       end
 
       def valid_scope?(token)
@@ -134,6 +133,14 @@ module OmniAuth
 
       def callback_url
         options[:callback_url] || full_host + script_name + callback_path
+      end
+
+      private
+
+      def validate_signature(secret)
+        params = request.GET
+        calculated_signature = self.class.hmac_sign(self.class.encoded_params_for_signature(params), secret)
+        Rack::Utils.secure_compare(calculated_signature, params['hmac'])
       end
     end
   end
